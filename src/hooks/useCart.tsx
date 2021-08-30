@@ -23,44 +23,63 @@ const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+    const storagedCart = window.localStorage.getItem("@rocktshoes/cart");
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart);
-    // }
+    if (storagedCart) {
+      return JSON.parse(storagedCart);
+    }
 
     return [];
   });
 
   const addProduct = async (productId: number) => {
     try {
+      const updatedCart = [...cart];
 
-      const newCartProduct = await api.get(`products/${productId}`).then(response => response.data);
+      const extistProduct = updatedCart.find(product => product.id === productId);
 
-      const newAmount = updateProductAmount(newCartProduct.id);
+      const getStokProduct = await api.get(`/stock/${productId}`).then(response => response.data.amount);
 
-      setCart([
-        ...cart,
-        {
-          id: newCartProduct.id,
-          title: newCartProduct.title,
-          price: newCartProduct.price,
-          image: newCartProduct.image,
-          amount: 5,
-        }
-      ]);
-    
+      const amountCurrent = extistProduct ? extistProduct.amount : 0;
+
+      const amount = amountCurrent + 1;
+
+      if( amount > getStokProduct ){
+        toast.error('Não a mais deste produtos em estoque!');
+        return;
+      }
+
+      if(extistProduct) {
+        extistProduct.amount = amount;
+      } else {
+        const product = api.get(`/products/${productId}`);
+
+        const newProduct = {
+          ...(await product).data,
+          amount: 1,
+        };
+
+        updatedCart.push(newProduct);
+      }
+      
+      setCart(updatedCart);
+
+      window.localStorage.setItem("@rocktshoes/cart", JSON.stringify(updatedCart));
+
     } catch {
       toast.error('Erro ao adicionar produto ao carrinho!');
-      return;
     }
   };
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO
+      const RemoveItemOfCart = cart.filter(cart => cart.id !== productId);
+      setCart(RemoveItemOfCart);
+      
+      window.localStorage.setItem("@rocktshoes/cart", JSON.stringify(RemoveItemOfCart));
     } catch {
-      // TODO
+      toast.error('Erro ao remover este produto do carrinho!');
+      return;
     }
   };
 
@@ -69,9 +88,28 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO
+      const updatedCart = [...cart];
+
+      const extistProduct = updatedCart.find(product => product.id === productId);
+
+      const getStokProduct = await api.get(`/stock/${productId}`).then(response => response.data.amount);
+
+      if( amount > getStokProduct ){
+        toast.error('Não a mais deste produtos em estoque!');
+        return;
+      }
+
+      if(extistProduct) {
+        extistProduct.amount = amount;
+      } else {
+        return;
+      }
+      
+      setCart(updatedCart);
+      
+      window.localStorage.setItem("@rocktshoes/cart", JSON.stringify(updatedCart));
     } catch {
-      // TODO
+      toast.error('Erro ao atualizar quantidade deste produto!');
     }
   };
 
